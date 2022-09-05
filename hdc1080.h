@@ -32,7 +32,10 @@ public:
 
 private:
     bool deviceAvailable;
+    size_t availabilityCounter;
     uint16_t manufacturerId;
+    uint16_t deviceId;
+    uint64_t deviceSerial;
     uint16_t readMsg(uint8_t registerPointer, uint32_t waitTime = 0);
     void writeReg(uint16_t value);
     void writeReg(std::vector<uint16_t> values);
