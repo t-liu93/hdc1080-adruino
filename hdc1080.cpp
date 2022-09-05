@@ -26,7 +26,9 @@ typedef union {
 
 HDC1080::HDC1080()
     : deviceAvailable(false)
-    , availabilityCounter(0) {
+    , availabilityCounter(0)
+    , lastTemperature(-40)
+    , lastHumidity(1) {
     manufacturerId = readManufacturerId();
     deviceId = readDeviceId();
     deviceSerial = readDeviceSerialId();
@@ -68,7 +70,8 @@ double HDC1080::measureTemperature(TempMeasureResolution tempResolution) {
     uint16_t configValue = tempResolution;
     writeReg(std::vector{registerConfig, configValue});
     uint16_t tempRaw = readMsg(registerTempRead, delayTime);
-    return ((double)tempRaw / pow(2, 16)) * 165 - 40;
+    if (availabilityCounter == 0) lastTemperature = ((double)tempRaw / pow(2, 16)) * 165 - 40;
+    return lastTemperature;
 }
 
 double HDC1080::measureHumidity(HumidityMeasureResolution humResolution) {
@@ -87,7 +90,8 @@ double HDC1080::measureHumidity(HumidityMeasureResolution humResolution) {
     uint16_t configValue = humResolution;
     writeReg(std::vector{registerConfig, configValue});
     uint16_t humRaw = readMsg(registerHumiRead, delayTime);
-    return ((double)humRaw / pow(2, 16));
+    if (availabilityCounter == 0) lastHumidity =  ((double)humRaw / pow(2, 16));
+    return lastHumidity;
 }
 
 AirData HDC1080::measureTempAndHum(TempMeasureResolution tempResolution, HumidityMeasureResolution humResolution) {

@@ -33,6 +33,8 @@ public:
 private:
     bool deviceAvailable;
     size_t availabilityCounter;
+    double lastTemperature;
+    double lastHumidity;
     uint16_t manufacturerId;
     uint16_t deviceId;
     uint64_t deviceSerial;
