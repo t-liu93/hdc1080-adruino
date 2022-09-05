@@ -12,6 +12,8 @@ constexpr uint8_t registerDeviceId = 0xFF;
 constexpr uint8_t registerDeviceSerial[] = {0xFB, 0xFC, 0xFD};
 constexpr uint8_t lengthMsg = 2;
 
+constexpr size_t maxUnavailableCounter = 10;
+
 typedef struct {
     uint8_t dataLSB;
     uint8_t dataMSB;
@@ -22,8 +24,12 @@ typedef union {
     uint16_t msgFull;
 } Msg16;
 
-HDC1080::HDC1080() {
+HDC1080::HDC1080()
+    : deviceAvailable(false)
+    , availabilityCounter(0) {
     manufacturerId = readManufacturerId();
+    deviceId = readDeviceId();
+    deviceSerial = readDeviceSerialId();
 }
 
 uint16_t HDC1080::readManufacturerId() {
@@ -98,6 +104,10 @@ void HDC1080::setHeater(bool enable) {
     writeReg(std::vector(registerConfig, configValue));
 }
 
+bool HDC1080::deviceIsAvailable() {
+    return deviceAvailable;
+}
+
 uint16_t HDC1080::readMsg(uint8_t registerPointer, uint32_t waitTime) {
     Msg16 msg = {};
     writeReg(registerPointer);
@@ -125,7 +135,9 @@ void HDC1080::writeReg(std::vector<uint16_t> values) {
     uint8_t status = Wire.endTransmission();
     if (status == 0) {
         deviceAvailable = true;
+        availabilityCounter = 0;
     } else {
-        deviceAvailable = false;
+        availabilityCounter ++;
+        if (availabilityCounter > maxUnavailableCounter) deviceAvailable = false;
     }
 }
