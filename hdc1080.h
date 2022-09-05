@@ -33,4 +33,7 @@ private:
     bool deviceAvailable;
     uint16_t manufacturerId;
     uint16_t readMsg(uint8_t registerPointer, uint32_t waitTime = 0);
+    void writeReg(uint16_t value);
+    // void writeReg(uint16_t value16);
+    void writeReg(std::vector<uint16_t> values);
 };

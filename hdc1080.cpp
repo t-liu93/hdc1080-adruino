@@ -60,10 +60,7 @@ double HDC1080::measureTemperature(TempMeasureResolution tempResolution) {
             break;
     }
     uint16_t configValue = tempResolution;
-    Wire.beginTransmission(address);
-    Wire.write(registerConfig);
-    Wire.write(configValue);
-    Wire.endTransmission();
+    writeReg(std::vector(registerConfig, configValue));
     uint16_t tempRaw = readMsg(registerTempRead, delayTime);
     return ((double)tempRaw / pow(2, 16)) * 165 - 40;
 }
@@ -82,10 +79,7 @@ double HDC1080::measureHumidity(HumidityMeasureResolution humResolution) {
             break;
     }
     uint16_t configValue = humResolution;
-    Wire.beginTransmission(address);
-    Wire.write(registerConfig);
-    Wire.write(configValue);
-    Wire.endTransmission();
+    writeReg(std::vector(registerConfig, configValue));
     uint16_t humRaw = readMsg(registerHumiRead, delayTime);
     return ((double)humRaw / pow(2, 16));
 }
@@ -101,23 +95,37 @@ AirData HDC1080::measureTempAndHum(TempMeasureResolution tempResolution, Humidit
 
 void HDC1080::setHeater(bool enable) {
     uint16_t configValue = enable ? 1 << 13 : 0;
-    Wire.beginTransmission(address);
-    Wire.write(registerConfig);
-    Wire.write(configValue);
-    Wire.endTransmission();
+    writeReg(std::vector(registerConfig, configValue));
 }
 
 uint16_t HDC1080::readMsg(uint8_t registerPointer, uint32_t waitTime) {
     Msg16 msg = {};
-    Wire.beginTransmission(address);
-    Wire.write(registerPointer);
-    Serial.println(Wire.endTransmission());
+    writeReg(registerPointer);
+    delay(waitTime);
     uint8_t nrBytes = Wire.requestFrom(address, lengthMsg);
-    Serial.println(nrBytes);
     if (nrBytes == lengthMsg) {
         msg.msgRaw.dataMSB = Wire.read();
         msg.msgRaw.dataLSB = Wire.read();
     }
 
     return msg.msgFull;
+}
+
+void HDC1080::writeReg(uint16_t value) {
+    std::vector values = {value};
+    writeReg(values);
+}
+
+void HDC1080::writeReg(std::vector<uint16_t> values) {
+    if (values.size() == 0) return;
+    Wire.beginTransmission(address);
+    for (const auto & valueByte : values) {
+        Wire.write(valueByte);
+    }
+    uint8_t status = Wire.endTransmission();
+    if (status == 0) {
+        deviceAvailable = true;
+    } else {
+        deviceAvailable = false;
+    }
 }
