@@ -66,7 +66,7 @@ double HDC1080::measureTemperature(TempMeasureResolution tempResolution) {
             break;
     }
     uint16_t configValue = tempResolution;
-    writeReg(std::vector(registerConfig, configValue));
+    writeReg(std::vector{registerConfig, configValue});
     uint16_t tempRaw = readMsg(registerTempRead, delayTime);
     return ((double)tempRaw / pow(2, 16)) * 165 - 40;
 }
@@ -85,7 +85,7 @@ double HDC1080::measureHumidity(HumidityMeasureResolution humResolution) {
             break;
     }
     uint16_t configValue = humResolution;
-    writeReg(std::vector(registerConfig, configValue));
+    writeReg(std::vector{registerConfig, configValue});
     uint16_t humRaw = readMsg(registerHumiRead, delayTime);
     return ((double)humRaw / pow(2, 16));
 }
@@ -101,7 +101,7 @@ AirData HDC1080::measureTempAndHum(TempMeasureResolution tempResolution, Humidit
 
 void HDC1080::setHeater(bool enable) {
     uint16_t configValue = enable ? 1 << 13 : 0;
-    writeReg(std::vector(registerConfig, configValue));
+    writeReg(std::vector{registerConfig, configValue});
 }
 
 bool HDC1080::deviceIsAvailable() {
@@ -129,8 +129,15 @@ void HDC1080::writeReg(uint16_t value) {
 void HDC1080::writeReg(std::vector<uint16_t> values) {
     if (values.size() == 0) return;
     Wire.beginTransmission(address);
-    for (const auto & valueByte : values) {
-        Wire.write(valueByte);
+    for (const auto & valueWord : values) {
+        // check if 8 bit
+        if ((valueWord & 0xFF00) == 0) {
+            uint8_t valueNew = (uint8_t)valueWord;
+            Wire.write(valueNew);
+        } else {
+            // 16 bit should be
+            Wire.write(valueWord);
+        }
     }
     uint8_t status = Wire.endTransmission();
     if (status == 0) {
