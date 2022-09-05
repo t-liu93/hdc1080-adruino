@@ -4,6 +4,9 @@
 #include "hdc1080.h"
 
 constexpr uint8_t address = 0b1000000; // HDC1080 has fixed i2c address.
+constexpr uint8_t registerConfig = 0x02;
+constexpr uint8_t registerTempRead = 0x00;
+constexpr uint8_t registerHumiRead = 0x01;
 constexpr uint8_t registerManufacturerId = 0xFE;
 constexpr uint8_t registerDeviceId = 0xFF;
 constexpr uint8_t registerDeviceSerial[] = {0xFB, 0xFC, 0xFD};
@@ -19,16 +22,13 @@ typedef union {
     uint16_t msgFull;
 } Msg16;
 
-HDC1080::HDC1080(uint8_t pinSDA, uint8_t pinSCL)
-    : pinSDA(pinSDA)
-    , pinSCL(pinSCL) {
+HDC1080::HDC1080() {
+    manufacturerId = readManufacturerId();
 }
 
 uint16_t HDC1080::readManufacturerId() {
     uint16_t manId = 0;
     manId = readMsg(registerManufacturerId);
-    Serial.print("manufacturer id: ");
-    Serial.println(manId);
 
     return manId;
 }
@@ -36,8 +36,6 @@ uint16_t HDC1080::readManufacturerId() {
 uint16_t HDC1080::readDeviceId() {
     uint16_t deviceId = 0;
     deviceId = readMsg(registerDeviceId);
-    Serial.print("manufacturer id: ");
-    Serial.println(deviceId);
 
     return deviceId;
 }
@@ -48,18 +46,74 @@ uint64_t HDC1080::readDeviceSerialId() {
     uint16_t mid = readMsg(registerDeviceSerial[1]);
     uint16_t last = readMsg(registerDeviceSerial[2]);
     deviceSerial = (uint64_t)first << 32 | mid << 16 | last;
-    Serial.print("serial id: ");
-    // Serial.println(first);
-    Serial.println(deviceSerial);
     return deviceSerial;
 }
 
-uint16_t HDC1080::readMsg(uint8_t registerPointer) {
+double HDC1080::measureTemperature(TempMeasureResolution tempResolution) {
+    uint32_t delayTime = 0;
+    switch (tempResolution) {
+        case TempMeasureResolution::TEMPRES_14BIT:
+            delayTime = 7;
+            break;
+        case TempMeasureResolution::TEMPRES_11BIT:
+            delayTime = 4;
+            break;
+    }
+    uint16_t configValue = tempResolution;
+    Wire.beginTransmission(address);
+    Wire.write(registerConfig);
+    Wire.write(configValue);
+    Wire.endTransmission();
+    uint16_t tempRaw = readMsg(registerTempRead, delayTime);
+    return ((double)tempRaw / pow(2, 16)) * 165 - 40;
+}
+
+double HDC1080::measureHumidity(HumidityMeasureResolution humResolution) {
+    uint32_t delayTime = 0;
+    switch (humResolution) {
+        case HumidityMeasureResolution::HUMRES_14BIT:
+            delayTime = 7;
+            break;
+        case HumidityMeasureResolution::HUMRES_11BIT:
+            delayTime = 4;
+            break;
+        case HumidityMeasureResolution::HUMRES_8BIT:
+            delayTime = 3;
+            break;
+    }
+    uint16_t configValue = humResolution;
+    Wire.beginTransmission(address);
+    Wire.write(registerConfig);
+    Wire.write(configValue);
+    Wire.endTransmission();
+    uint16_t humRaw = readMsg(registerHumiRead, delayTime);
+    return ((double)humRaw / pow(2, 16));
+}
+
+AirData HDC1080::measureTempAndHum(TempMeasureResolution tempResolution, HumidityMeasureResolution humResolution) {
+    AirData retval = {0, 0};
+    // Use two single measurement
+    retval.temperature = measureTemperature(tempResolution);
+    retval.humidity = measureHumidity(humResolution);
+
+    return retval;
+}
+
+void HDC1080::setHeater(bool enable) {
+    uint16_t configValue = enable ? 1 << 13 : 0;
+    Wire.beginTransmission(address);
+    Wire.write(registerConfig);
+    Wire.write(configValue);
+    Wire.endTransmission();
+}
+
+uint16_t HDC1080::readMsg(uint8_t registerPointer, uint32_t waitTime) {
     Msg16 msg = {};
     Wire.beginTransmission(address);
     Wire.write(registerPointer);
-    Wire.endTransmission();
+    Serial.println(Wire.endTransmission());
     uint8_t nrBytes = Wire.requestFrom(address, lengthMsg);
+    Serial.println(nrBytes);
     if (nrBytes == lengthMsg) {
         msg.msgRaw.dataMSB = Wire.read();
         msg.msgRaw.dataLSB = Wire.read();
