@@ -28,7 +28,7 @@ HDC1080::HDC1080()
     : deviceAvailable(false)
     , availabilityCounter(0)
     , lastTemperature(-40)
-    , lastHumidity(1) {
+    , lastHumidity(0) {
     manufacturerId = readManufacturerId();
     deviceId = readDeviceId();
     deviceSerial = readDeviceSerialId();
@@ -144,6 +144,7 @@ void HDC1080::writeReg(std::vector<uint16_t> values) {
         }
     }
     uint8_t status = Wire.endTransmission();
+    // Serial.println(status);
     if (status == 0) {
         deviceAvailable = true;
         availabilityCounter = 0;
